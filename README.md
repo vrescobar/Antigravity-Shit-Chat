@@ -1,6 +1,9 @@
-# Antigravity Mobile Monitor
+# Antigravity Shit-Chat Mobile Monitor
 
 Need to go to the bathroom? But Opus 4.5 might be done with that big task soon? Want to eat lunch? But there's more tokens left before they reset right after lunch?
+
+<img width="1957" height="1060" alt="screenshot" src="https://github.com/user-attachments/assets/95318065-d943-43f1-b05c-26fd7c0733dd" />
+
 
 A real-time mobile interface for monitoring and interacting with Antigravity chat sessions. 
 
