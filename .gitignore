@@ -1,6 +1,10 @@
 # Dependencies
 node_modules/
 package-lock.json
+bun.lock
+
+# Build
+dist/
 
 # Logs
 *.log
