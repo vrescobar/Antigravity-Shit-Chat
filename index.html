@@ -119,6 +119,42 @@
             color: #666;
             margin-top: 50px;
         }
+
+        /* Notification/Error panels captured from Antigravity */
+        [role="alert"],
+        [role="dialog"],
+        [role="alertdialog"],
+        [class*="notification"],
+        [class*="toast"],
+        [class*="error-banner"],
+        [class*="modal"] {
+            background: #2a2a2a !important;
+            border: 1px solid #444 !important;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 16px;
+            color: #fff !important;
+        }
+
+        /* Ensure buttons in notifications are visible */
+        [role="alert"] button,
+        [role="dialog"] button,
+        [class*="notification"] button,
+        [class*="error"] button {
+            background: #3b82f6 !important;
+            color: white !important;
+            border: none !important;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 4px;
+        }
+
+        /* Secondary/dismiss buttons */
+        [role="alert"] button:first-of-type,
+        [role="dialog"] button:first-of-type {
+            background: #374151 !important;
+        }
     </style>
     <style id="cascade-style">
         /* Dynamic styles will be injected here */

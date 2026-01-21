@@ -201,6 +201,24 @@ async function updateContentOnly(id: string) {
 
         document.body.style.backgroundColor = data.bodyBg || '#1a1a1a';
         chatContent.innerHTML = data.html;
+        
+        // Add click handlers for buttons in notification panels (Retry, Dismiss, etc.)
+        chatContent.querySelectorAll('button').forEach(btn => {
+            const text = btn.textContent || '';
+            if (text.includes('Retry')) {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    (window as any).doAction('retry');
+                });
+            } else if (text.includes('Dismiss')) {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    (window as any).doAction('dismiss');
+                });
+            }
+        });
 
         if (isAtBottom) chatContainer.scrollTop = chatContainer.scrollHeight;
     } catch (e) { }

@@ -239,12 +239,104 @@ async function captureHTML(cdp: CDPConnection): Promise<Snapshot | null> {
         const input = clone.querySelector('[contenteditable="true"]')?.closest('div[id^="cascade"] > div');
         if (input) input.remove();
         
+        // Capture error/notification panels that appear outside #cascade
+        // These are typically modals, alerts, or toast notifications at the root level
+        let notificationHtml = '';
+        const capturedElements = new Set();
+        
+        // Method 1: Selector-based detection
+        const notificationSelectors = [
+            '[role="alert"]',
+            '[role="dialog"]',
+            '[role="alertdialog"]',
+            '[class*="notification"]',
+            '[class*="toast"]',
+            '[class*="error"]',
+            '[class*="modal"]',
+            '[class*="overlay"]',
+            '[data-state="open"]'
+        ];
+        
+        for (const sel of notificationSelectors) {
+            try {
+                const elements = document.querySelectorAll(sel);
+                for (const el of elements) {
+                    if (cascade.contains(el) || capturedElements.has(el)) continue;
+                    const style = window.getComputedStyle(el);
+                    if (style.display === 'none' || style.visibility === 'hidden') continue;
+                    capturedElements.add(el);
+                    notificationHtml += el.outerHTML;
+                }
+            } catch (e) {}
+        }
+        
+        // Method 2: Text-content based detection for "Agent terminated" error
+        // Walk through all elements looking for the specific error text
+        const walker = document.createTreeWalker(
+            document.body,
+            NodeFilter.SHOW_TEXT,
+            null
+        );
+        
+        let node;
+        while (node = walker.nextNode()) {
+            const text = node.textContent || '';
+            if (text.includes('Agent terminated') || text.includes('terminated due to error')) {
+                // Find the parent container (go up until we find a substantial container)
+                let container = node.parentElement;
+                while (container && container !== document.body) {
+                    // Check if this looks like a notification container
+                    const rect = container.getBoundingClientRect();
+                    if (rect.width > 200 && rect.height > 50) {
+                        if (!cascade.contains(container) && !capturedElements.has(container)) {
+                            const style = window.getComputedStyle(container);
+                            if (style.display !== 'none' && style.visibility !== 'hidden') {
+                                capturedElements.add(container);
+                                notificationHtml += container.outerHTML;
+                                break;
+                            }
+                        }
+                    }
+                    container = container.parentElement;
+                }
+            }
+        }
+        
+        // Method 3: Look for Retry button outside cascade
+        const retryBtns = document.querySelectorAll('button');
+        for (const btn of retryBtns) {
+            if (btn.textContent?.includes('Retry') && !cascade.contains(btn)) {
+                let container = btn.parentElement;
+                while (container && container !== document.body) {
+                    const rect = container.getBoundingClientRect();
+                    if (rect.width > 200 && rect.height > 50) {
+                        if (!capturedElements.has(container)) {
+                            capturedElements.add(container);
+                            notificationHtml += container.outerHTML;
+                            break;
+                        }
+                    }
+                    container = container.parentElement;
+                }
+            }
+        }
+        
         const bodyStyles = window.getComputedStyle(document.body);
+        
+        // Debug: Check if we found the error text anywhere in the page
+        const debugInfo = {
+            foundAgentTerminated: document.body.innerHTML.includes('Agent terminated'),
+            foundRetry: document.body.innerHTML.includes('Retry'),
+            notificationCount: capturedElements.size,
+            cascadeContainsError: cascade.innerHTML.includes('Agent terminated')
+        };
+        console.log('Capture debug:', debugInfo);
 
         return {
-            html: clone.outerHTML,
+            html: clone.outerHTML + notificationHtml,
             bodyBg: bodyStyles.backgroundColor,
-            bodyColor: bodyStyles.color
+            bodyColor: bodyStyles.color,
+            debug: debugInfo
         };
     })()`;
 
@@ -354,6 +446,14 @@ async function updateSnapshots() {
       try {
         const snap = await captureHTML(c.cdp); // Only capture HTML
         if (snap) {
+          // Log debug info if present
+          if ((snap as any).debug) {
+            const d = (snap as any).debug;
+            if (d.foundAgentTerminated || d.foundRetry) {
+              console.log(`🔍 ${c.metadata.chatTitle}:`, d);
+            }
+          }
+          
           const hash = hashString(snap.html);
           if (hash !== c.snapshotHash) {
             c.snapshot = snap;
@@ -619,6 +719,32 @@ async function performAction(cdp: CDPConnection, action: string) {
         return { ok: true, message: 'Clicked close (fallback)' };
       }
       return { ok: false, reason: 'Close button not found' };
+    })()`,
+
+    // Retry: click the Retry button in error panels
+    retry: `(() => {
+      // Look for button containing "Retry" text
+      const buttons = document.querySelectorAll('button');
+      for (const btn of buttons) {
+        if (btn.textContent?.includes('Retry')) {
+          btn.click();
+          return { ok: true, message: 'Clicked Retry' };
+        }
+      }
+      return { ok: false, reason: 'Retry button not found' };
+    })()`,
+
+    // Dismiss: click the Dismiss button in error panels  
+    dismiss: `(() => {
+      // Look for button containing "Dismiss" text
+      const buttons = document.querySelectorAll('button');
+      for (const btn of buttons) {
+        if (btn.textContent?.includes('Dismiss')) {
+          btn.click();
+          return { ok: true, message: 'Clicked Dismiss' };
+        }
+      }
+      return { ok: false, reason: 'Dismiss button not found' };
     })()`
   };
 
